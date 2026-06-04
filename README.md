@@ -117,9 +117,10 @@ The node calls:
 POST https://api.openai.com/v1/images/edits
 ```
 
-If you use an OpenAI-compatible gateway or proxy, fill `api_endpoint` with its full image edit URL, for example:
+If you use an OpenAI-compatible gateway or proxy, fill `api_endpoint` with either its base URL or full image edit URL:
 
 ```text
+https://your-gateway.example.com/v1
 https://your-gateway.example.com/v1/images/edits
 ```
 

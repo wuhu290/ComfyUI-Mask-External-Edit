@@ -239,7 +239,7 @@ def _call_openai_edit(
     headers = {
         "Authorization": f"Bearer {resolved_api_key}",
     }
-    edit_endpoint = endpoint.strip() or "https://api.openai.com/v1/images/edits"
+    edit_endpoint = _resolve_openai_edit_endpoint(endpoint)
     response = requests.post(
         edit_endpoint,
         headers=headers,
@@ -249,6 +249,15 @@ def _call_openai_edit(
     )
     _raise_for_status_with_body(response)
     return _decode_response_image(response)
+
+
+def _resolve_openai_edit_endpoint(endpoint: str) -> str:
+    endpoint = endpoint.strip().rstrip("/")
+    if not endpoint:
+        return "https://api.openai.com/v1/images/edits"
+    if endpoint.endswith("/images/edits"):
+        return endpoint
+    return endpoint + "/images/edits"
 
 
 def _images_are_identical(left: Image.Image, right: Image.Image) -> bool:
