@@ -123,6 +123,19 @@ def _decode_response_image(response: requests.Response) -> Image.Image:
         return Image.open(io.BytesIO(response.content)).convert("RGB")
 
     data = response.json()
+    if "data" in data and data["data"]:
+        item = data["data"][0]
+        if isinstance(item, dict):
+            payload = item.get("b64_json") or item.get("image_base64") or item.get("base64")
+            if payload:
+                if "," in payload and payload.strip().startswith("data:"):
+                    payload = payload.split(",", 1)[1]
+                return Image.open(io.BytesIO(base64.b64decode(payload))).convert("RGB")
+            url = item.get("url")
+            if url:
+                remote = requests.get(url, timeout=60)
+                remote.raise_for_status()
+                return Image.open(io.BytesIO(remote.content)).convert("RGB")
     if "image_base64" in data:
         payload = data["image_base64"]
         if "," in payload and payload.strip().startswith("data:"):
@@ -145,6 +158,14 @@ def _decode_response_image(response: requests.Response) -> Image.Image:
         remote.raise_for_status()
         return Image.open(io.BytesIO(remote.content)).convert("RGB")
     raise ValueError("API response did not contain an image, image_base64, images, or url field.")
+
+
+def _raise_for_status_with_body(response: requests.Response) -> None:
+    try:
+        response.raise_for_status()
+    except requests.HTTPError as exc:
+        body = response.text[:1000] if response.text else ""
+        raise requests.HTTPError(f"{exc}; response body: {body}", response=response) from exc
 
 
 def _resolve_api_key(api_key: str, api_key_env: str) -> str:
@@ -181,7 +202,7 @@ def _call_custom_http(
         "task": task,
     }
     response = requests.post(endpoint, headers=headers, files=files, data=data, timeout=timeout)
-    response.raise_for_status()
+    _raise_for_status_with_body(response)
     return _decode_response_image(response)
 
 
@@ -226,7 +247,7 @@ def _call_openai_edit(
         data=data,
         timeout=timeout,
     )
-    response.raise_for_status()
+    _raise_for_status_with_body(response)
     return _decode_response_image(response)
 
 
