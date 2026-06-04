@@ -216,7 +216,6 @@ class MaskExternalEdit:
                     "default": "Fix only the masked area. Preserve the original character, pose, style, lighting, and background.",
                 }),
                 "api_endpoint": ("STRING", {"default": ""}),
-                "api_key": ("STRING", {"default": ""}),
                 "api_key_env": ("STRING", {"default": "MASK_EXTERNAL_EDIT_API_KEY"}),
                 "padding": ("INT", {"default": 160, "min": 0, "max": 1024, "step": 8}),
                 "mask_grow": ("INT", {"default": 12, "min": 0, "max": 256, "step": 2}),
@@ -225,6 +224,7 @@ class MaskExternalEdit:
                 "threshold": ("INT", {"default": 16, "min": 1, "max": 255, "step": 1}),
                 "timeout_seconds": ("INT", {"default": 120, "min": 10, "max": 600, "step": 10}),
                 "blend_mode": (["normal", "color_match"], {"default": "color_match"}),
+                "api_key": ("STRING", {"default": ""}),
             },
         }
 
@@ -241,7 +241,6 @@ class MaskExternalEdit:
         task: str,
         prompt: str,
         api_endpoint: str,
-        api_key: str,
         api_key_env: str,
         padding: int,
         mask_grow: int,
@@ -250,6 +249,7 @@ class MaskExternalEdit:
         threshold: int,
         timeout_seconds: int,
         blend_mode: str,
+        api_key: str,
     ):
         original = _tensor_to_pil(image)
         source_mask = _mask_to_pil(mask, original.size)
