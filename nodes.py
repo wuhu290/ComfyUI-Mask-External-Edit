@@ -386,8 +386,10 @@ class MaskExternalEdit:
         succeeded = True
         try:
             if provider == "debug_echo":
-                edited_crop = ImageOps.autocontrast(api_crop)
-                status = "debug_echo: returned autocontrast crop without calling external API."
+                overlay = Image.new("RGB", api_crop.size, (255, 45, 141))
+                debug_mask = ImageOps.autocontrast(api_mask.convert("L"))
+                edited_crop = Image.composite(overlay, api_crop.convert("RGB"), debug_mask)
+                status = "debug_echo: painted the detected mask area without calling external API."
             elif provider == "openai":
                 edited_crop = _call_openai_edit(
                     api_endpoint,
