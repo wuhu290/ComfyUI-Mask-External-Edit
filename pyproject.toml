@@ -1,5 +1,5 @@
 [project]
-name = "kusart-mask-external-edit"
+name = "mask-external-edit"
 version = "0.1.0"
 description = "Masked local edit node for ComfyUI. Crop a user-painted region, send it to an external image editing API, and blend it back into the original image."
 license = { file = "LICENSE" }
@@ -19,4 +19,4 @@ Documentation = "https://github.com/wuhu290/ComfyUI-Mask-External-Edit#readme"
 
 [tool.comfy]
 PublisherId = "wuhu290"
-DisplayName = "KusArt Mask External Edit"
+DisplayName = "Mask External Edit"

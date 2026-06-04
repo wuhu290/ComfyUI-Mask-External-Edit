@@ -200,7 +200,7 @@ def _match_luminance(source: Image.Image, target: Image.Image) -> Image.Image:
     return Image.fromarray(matched, "RGB")
 
 
-class KusArtMaskExternalEdit:
+class MaskExternalEdit:
     @classmethod
     def INPUT_TYPES(cls) -> Dict[str, Any]:
         return {
@@ -214,7 +214,7 @@ class KusArtMaskExternalEdit:
                     "default": "Fix only the masked area. Preserve the original character, pose, style, lighting, and background.",
                 }),
                 "api_endpoint": ("STRING", {"default": ""}),
-                "api_key_env": ("STRING", {"default": "KUSART_EXTERNAL_EDIT_API_KEY"}),
+                "api_key_env": ("STRING", {"default": "MASK_EXTERNAL_EDIT_API_KEY"}),
                 "padding": ("INT", {"default": 160, "min": 0, "max": 1024, "step": 8}),
                 "mask_grow": ("INT", {"default": 12, "min": 0, "max": 256, "step": 2}),
                 "feather": ("INT", {"default": 24, "min": 0, "max": 256, "step": 2}),
@@ -228,7 +228,7 @@ class KusArtMaskExternalEdit:
     RETURN_TYPES = ("IMAGE", "IMAGE", "IMAGE", "MASK", "STRING")
     RETURN_NAMES = ("image", "debug_crop", "edited_crop", "used_mask", "status")
     FUNCTION = "edit"
-    CATEGORY = "KusArt/Enhance"
+    CATEGORY = "Mask External Edit/Enhance"
 
     def edit(
         self,
@@ -316,9 +316,9 @@ class KusArtMaskExternalEdit:
 
 
 NODE_CLASS_MAPPINGS = {
-    "KusArtMaskExternalEdit": KusArtMaskExternalEdit,
+    "MaskExternalEdit": MaskExternalEdit,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "KusArtMaskExternalEdit": "KusArt Mask External Edit",
+    "MaskExternalEdit": "Mask External Edit",
 }

@@ -1,4 +1,4 @@
-# ComfyUI-KusArt-Mask-External-Edit
+# ComfyUI-Mask-External-Edit
 
 ComfyUI custom node for local masked image editing.
 
@@ -17,13 +17,13 @@ This is designed for product features such as:
 After installation, search this node in ComfyUI:
 
 ```text
-KusArt Mask External Edit
+Mask External Edit
 ```
 
 Category:
 
 ```text
-KusArt / Enhance
+Mask External Edit / Enhance
 ```
 
 ## Inputs
@@ -71,7 +71,7 @@ Restart ComfyUI.
 Then right click in the canvas and search:
 
 ```text
-KusArt Mask External Edit
+Mask External Edit
 ```
 
 If you use ComfyUI Manager and the repository is not listed yet:
@@ -121,13 +121,13 @@ Authorization: Bearer {API_KEY}
 Example:
 
 ```bash
-set KUSART_EXTERNAL_EDIT_API_KEY=your_key_here
+set MASK_EXTERNAL_EDIT_API_KEY=your_key_here
 ```
 
 On Windows PowerShell:
 
 ```powershell
-$env:KUSART_EXTERNAL_EDIT_API_KEY="your_key_here"
+$env:MASK_EXTERNAL_EDIT_API_KEY="your_key_here"
 ```
 
 Expected response can be any one of:
