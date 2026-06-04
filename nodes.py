@@ -126,6 +126,7 @@ def _decode_response_image(response: requests.Response) -> Image.Image:
 
 def _call_custom_http(
     endpoint: str,
+    api_key: str,
     api_key_env: str,
     prompt: str,
     crop: Image.Image,
@@ -137,10 +138,11 @@ def _call_custom_http(
         raise ValueError("api_endpoint is required for custom_http provider.")
 
     headers: Dict[str, str] = {}
-    if api_key_env.strip():
-        api_key = os.getenv(api_key_env.strip(), "")
-        if api_key:
-            headers["Authorization"] = f"Bearer {api_key}"
+    resolved_api_key = api_key.strip()
+    if not resolved_api_key and api_key_env.strip():
+        resolved_api_key = os.getenv(api_key_env.strip(), "")
+    if resolved_api_key:
+        headers["Authorization"] = f"Bearer {resolved_api_key}"
 
     files = {
         "image": ("crop.png", _image_to_png_bytes(crop), "image/png"),
@@ -214,6 +216,7 @@ class MaskExternalEdit:
                     "default": "Fix only the masked area. Preserve the original character, pose, style, lighting, and background.",
                 }),
                 "api_endpoint": ("STRING", {"default": ""}),
+                "api_key": ("STRING", {"default": ""}),
                 "api_key_env": ("STRING", {"default": "MASK_EXTERNAL_EDIT_API_KEY"}),
                 "padding": ("INT", {"default": 160, "min": 0, "max": 1024, "step": 8}),
                 "mask_grow": ("INT", {"default": 12, "min": 0, "max": 256, "step": 2}),
@@ -238,6 +241,7 @@ class MaskExternalEdit:
         task: str,
         prompt: str,
         api_endpoint: str,
+        api_key: str,
         api_key_env: str,
         padding: int,
         mask_grow: int,
@@ -279,6 +283,7 @@ class MaskExternalEdit:
             elif provider == "custom_http":
                 edited_crop = _call_custom_http(
                     api_endpoint,
+                    api_key,
                     api_key_env,
                     prompt,
                     api_crop,

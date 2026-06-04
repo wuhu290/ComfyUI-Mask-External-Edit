@@ -36,7 +36,8 @@ Mask External Edit / Enhance
 | `task` | `general_fix`, `fix_hands`, `enhance_face`, `change_expression` |
 | `prompt` | Edit instruction sent to the external service |
 | `api_endpoint` | External HTTP endpoint |
-| `api_key_env` | Environment variable name for the API key |
+| `api_key` | Optional API key entered directly in the node |
+| `api_key_env` | Optional environment variable name for the API key |
 | `padding` | Context pixels added around the mask crop |
 | `mask_grow` | Expands the mask before crop/paste |
 | `feather` | Softens pasted edge |
@@ -112,7 +113,13 @@ fields:
   task: general_fix | fix_hands | enhance_face | change_expression
 ```
 
-If `api_key_env` is set and the environment variable exists, the node sends:
+If `api_key` is filled, the node sends:
+
+```text
+Authorization: Bearer {api_key}
+```
+
+If `api_key` is empty and `api_key_env` is set and the environment variable exists, the node sends:
 
 ```text
 Authorization: Bearer {API_KEY}
@@ -181,5 +188,5 @@ Use `debug_echo` first to verify crop, mask, and paste-back before connecting a 
 
 - This node does not bypass external provider safety policies.
 - If the external API fails, the node returns the original image and writes the reason to `status`.
-- API keys should be provided through environment variables, not hardcoded into workflows.
+- Direct `api_key` input is convenient for local testing, but exported workflows and screenshots may expose it. Use `api_key_env` for shared or production workflows.
 - `debug_echo` is included only for checking mask crop and paste-back behavior before connecting a real provider.
