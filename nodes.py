@@ -7,7 +7,7 @@ from typing import Any, Dict, Tuple
 import numpy as np
 import requests
 import torch
-from PIL import Image, ImageChops, ImageFilter, ImageOps
+from PIL import Image, ImageFilter, ImageOps
 
 
 def _tensor_to_pil(image: torch.Tensor) -> Image.Image:
@@ -94,6 +94,14 @@ def _image_to_png_bytes(image: Image.Image) -> bytes:
     return buffer.getvalue()
 
 
+def _openai_mask_from_user_mask(mask: Image.Image) -> Image.Image:
+    edit_mask = ImageOps.autocontrast(mask.convert("L"))
+    alpha = ImageOps.invert(edit_mask)
+    rgba = Image.new("RGBA", mask.size, (255, 255, 255, 255))
+    rgba.putalpha(alpha)
+    return rgba
+
+
 def _decode_response_image(response: requests.Response) -> Image.Image:
     content_type = response.headers.get("content-type", "").lower()
     if content_type.startswith("image/"):
@@ -124,6 +132,13 @@ def _decode_response_image(response: requests.Response) -> Image.Image:
     raise ValueError("API response did not contain an image, image_base64, images, or url field.")
 
 
+def _resolve_api_key(api_key: str, api_key_env: str) -> str:
+    resolved_api_key = api_key.strip()
+    if not resolved_api_key and api_key_env.strip():
+        resolved_api_key = os.getenv(api_key_env.strip(), "")
+    return resolved_api_key
+
+
 def _call_custom_http(
     endpoint: str,
     api_key: str,
@@ -138,9 +153,7 @@ def _call_custom_http(
         raise ValueError("api_endpoint is required for custom_http provider.")
 
     headers: Dict[str, str] = {}
-    resolved_api_key = api_key.strip()
-    if not resolved_api_key and api_key_env.strip():
-        resolved_api_key = os.getenv(api_key_env.strip(), "")
+    resolved_api_key = _resolve_api_key(api_key, api_key_env)
     if resolved_api_key:
         headers["Authorization"] = f"Bearer {resolved_api_key}"
 
@@ -153,6 +166,49 @@ def _call_custom_http(
         "task": task,
     }
     response = requests.post(endpoint, headers=headers, files=files, data=data, timeout=timeout)
+    response.raise_for_status()
+    return _decode_response_image(response)
+
+
+def _call_openai_edit(
+    api_key: str,
+    api_key_env: str,
+    prompt: str,
+    crop: Image.Image,
+    crop_mask: Image.Image,
+    task: str,
+    model: str,
+    timeout: int,
+) -> Image.Image:
+    resolved_api_key = _resolve_api_key(api_key, api_key_env)
+    if not resolved_api_key:
+        raise ValueError("OpenAI API key is required. Fill api_key or api_key_env.")
+
+    instruction = (
+        f"Task: {task}. {prompt}\n"
+        "Only edit the masked transparent area. Preserve the unmasked area, character identity, pose, "
+        "style, lighting, colors, and background as much as possible."
+    )
+    openai_mask = _openai_mask_from_user_mask(crop_mask)
+    files = {
+        "image": ("image.png", _image_to_png_bytes(crop.convert("RGB")), "image/png"),
+        "mask": ("mask.png", _image_to_png_bytes(openai_mask), "image/png"),
+    }
+    data = {
+        "model": model,
+        "prompt": instruction,
+        "n": "1",
+    }
+    headers = {
+        "Authorization": f"Bearer {resolved_api_key}",
+    }
+    response = requests.post(
+        "https://api.openai.com/v1/images/edits",
+        headers=headers,
+        files=files,
+        data=data,
+        timeout=timeout,
+    )
     response.raise_for_status()
     return _decode_response_image(response)
 
@@ -209,7 +265,7 @@ class MaskExternalEdit:
             "required": {
                 "image": ("IMAGE",),
                 "mask": ("MASK",),
-                "provider": (["custom_http", "debug_echo"], {"default": "custom_http"}),
+                "provider": (["openai", "custom_http", "debug_echo"], {"default": "openai"}),
                 "task": (["general_fix", "fix_hands", "enhance_face", "change_expression"], {"default": "general_fix"}),
                 "prompt": ("STRING", {
                     "multiline": True,
@@ -225,6 +281,7 @@ class MaskExternalEdit:
                 "timeout_seconds": ("INT", {"default": 120, "min": 10, "max": 600, "step": 10}),
                 "blend_mode": (["normal", "color_match"], {"default": "color_match"}),
                 "api_key": ("STRING", {"default": ""}),
+                "openai_model": (["gpt-image-1.5", "gpt-image-1", "gpt-image-1-mini"], {"default": "gpt-image-1"}),
             },
         }
 
@@ -250,6 +307,7 @@ class MaskExternalEdit:
         timeout_seconds: int,
         blend_mode: str,
         api_key: str,
+        openai_model: str,
     ):
         original = _tensor_to_pil(image)
         source_mask = _mask_to_pil(mask, original.size)
@@ -280,6 +338,18 @@ class MaskExternalEdit:
             if provider == "debug_echo":
                 edited_crop = ImageOps.autocontrast(api_crop)
                 status = "debug_echo: returned autocontrast crop without calling external API."
+            elif provider == "openai":
+                edited_crop = _call_openai_edit(
+                    api_key,
+                    api_key_env,
+                    prompt,
+                    api_crop,
+                    api_mask,
+                    task,
+                    openai_model,
+                    timeout_seconds,
+                )
+                status = f"openai: edited crop {api_crop.size[0]}x{api_crop.size[1]}, model={openai_model}, scale={scale:.3f}"
             elif provider == "custom_http":
                 edited_crop = _call_custom_http(
                     api_endpoint,

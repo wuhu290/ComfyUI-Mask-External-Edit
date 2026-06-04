@@ -2,7 +2,7 @@
 
 ComfyUI custom node for local masked image editing.
 
-The node accepts an original image and a user-painted mask, crops the masked area with context padding, sends the crop and crop mask to an external image-editing API, then blends the edited crop back into the original image.
+The node accepts an original image and a user-painted mask, crops the masked area with context padding, sends the crop and crop mask to an image-editing provider such as OpenAI, then blends the edited crop back into the original image.
 
 This is designed for product features such as:
 
@@ -32,7 +32,7 @@ Mask External Edit / Enhance
 | --- | --- |
 | `image` | Original ComfyUI image |
 | `mask` | User-painted mask |
-| `provider` | `custom_http` or `debug_echo` |
+| `provider` | `openai`, `custom_http`, or `debug_echo` |
 | `task` | `general_fix`, `fix_hands`, `enhance_face`, `change_expression` |
 | `prompt` | Edit instruction sent to the external service |
 | `api_endpoint` | External HTTP endpoint |
@@ -45,6 +45,7 @@ Mask External Edit / Enhance
 | `threshold` | Mask threshold for finding the painted area |
 | `timeout_seconds` | HTTP request timeout |
 | `blend_mode` | `normal` or `color_match` |
+| `openai_model` | `gpt-image-1.5`, `gpt-image-1`, or `gpt-image-1-mini` |
 
 ## Outputs
 
@@ -97,7 +98,31 @@ Official references:
 - ComfyUI Registry metadata: https://docs.comfy.org/registry/specifications
 - Publishing nodes: https://docs.comfy.org/registry/publishing
 
-## External API contract
+## OpenAI usage
+
+For direct OpenAI image editing inside ComfyUI:
+
+```text
+provider: openai
+api_key: your OpenAI API key
+openai_model: gpt-image-1
+api_endpoint: leave empty
+```
+
+The node calls:
+
+```text
+POST https://api.openai.com/v1/images/edits
+```
+
+It sends the cropped image and a generated PNG mask with an alpha channel. In ComfyUI, the area you paint in the mask is treated as the area to edit.
+
+OpenAI notes that GPT Image masks are prompt-guided and may not follow the mask shape with pixel-perfect precision. See the official image editing guide and image edits API reference:
+
+- https://platform.openai.com/docs/guides/image-generation
+- https://platform.openai.com/docs/api-reference/images/createEdit
+
+## Custom HTTP API contract
 
 The `custom_http` provider sends a `multipart/form-data` POST request:
 
