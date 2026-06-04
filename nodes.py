@@ -38,6 +38,21 @@ def _mask_to_pil(mask: torch.Tensor, size: Tuple[int, int]) -> Image.Image:
     return image
 
 
+def _prepare_edit_mask(mask: Image.Image, mask_mode: str) -> Image.Image:
+    normalized = ImageOps.autocontrast(mask.convert("L"))
+    if mask_mode == "white_edits":
+        return normalized
+    if mask_mode == "black_edits":
+        return ImageOps.invert(normalized)
+
+    values = np.asarray(normalized).astype(np.float32)
+    # ComfyUI MaskEditor/clipspace alpha masks often store painted areas as darker alpha
+    # over an otherwise opaque image. In that case the bright area dominates, so invert.
+    if float(values.mean()) > 127.0:
+        return ImageOps.invert(normalized)
+    return normalized
+
+
 def _pil_mask_to_tensor(mask: Image.Image) -> torch.Tensor:
     array = np.asarray(mask.convert("L")).astype(np.float32) / 255.0
     return torch.from_numpy(array)[None,]
@@ -282,6 +297,7 @@ class MaskExternalEdit:
                 "blend_mode": (["normal", "color_match"], {"default": "color_match"}),
                 "api_key": ("STRING", {"default": ""}),
                 "openai_model": ("STRING", {"default": "gpt-image-2"}),
+                "mask_mode": (["auto", "white_edits", "black_edits"], {"default": "auto"}),
             },
         }
 
@@ -308,9 +324,10 @@ class MaskExternalEdit:
         blend_mode: str,
         api_key: str,
         openai_model: str,
+        mask_mode: str,
     ):
         original = _tensor_to_pil(image)
-        source_mask = _mask_to_pil(mask, original.size)
+        source_mask = _prepare_edit_mask(_mask_to_pil(mask, original.size), mask_mode)
 
         if mask_grow > 0:
             source_mask = source_mask.filter(ImageFilter.MaxFilter(_safe_odd_size(mask_grow)))

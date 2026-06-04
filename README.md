@@ -46,6 +46,7 @@ Mask External Edit / Enhance
 | `timeout_seconds` | HTTP request timeout |
 | `blend_mode` | `normal` or `color_match` |
 | `openai_model` | OpenAI image edit model name, for example `gpt-image-2` |
+| `mask_mode` | `auto`, `white_edits`, or `black_edits` |
 
 ## Outputs
 
@@ -208,6 +209,19 @@ Content-Type: image/png
 | General local bug fix | 96-192 | 8-20 | 20-48 |
 
 Use `debug_echo` first to verify crop, mask, and paste-back before connecting a real API.
+
+For masks created by ComfyUI MaskEditor / clipspace, keep:
+
+```text
+mask_mode: auto
+```
+
+If the edited area is inverted, switch manually:
+
+```text
+white_edits: white mask pixels are edited
+black_edits: black/dark mask pixels are edited
+```
 
 ## Notes
 
