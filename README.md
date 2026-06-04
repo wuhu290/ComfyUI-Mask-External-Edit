@@ -35,9 +35,9 @@ Mask External Edit / Enhance
 | `provider` | `openai`, `custom_http`, or `debug_echo` |
 | `task` | `general_fix`, `fix_hands`, `enhance_face`, `change_expression` |
 | `prompt` | Edit instruction sent to the external service |
-| `api_endpoint` | External HTTP endpoint |
 | `api_key` | Optional API key entered directly in the node |
 | `api_key_env` | Optional environment variable name for the API key |
+| `api_endpoint` | Optional OpenAI image edits endpoint when `provider=openai`; leave empty for official OpenAI |
 | `padding` | Context pixels added around the mask crop |
 | `mask_grow` | Expands the mask before crop/paste |
 | `feather` | Softens pasted edge |
@@ -47,6 +47,7 @@ Mask External Edit / Enhance
 | `blend_mode` | `normal` or `color_match` |
 | `openai_model` | OpenAI image edit model name, for example `gpt-image-2` |
 | `mask_mode` | `auto`, `white_edits`, or `black_edits` |
+| `on_error` | `raise` to show API errors, or `return_original` to silently return the original image |
 
 ## Outputs
 
@@ -114,6 +115,12 @@ The node calls:
 
 ```text
 POST https://api.openai.com/v1/images/edits
+```
+
+If you use an OpenAI-compatible gateway or proxy, fill `api_endpoint` with its full image edit URL, for example:
+
+```text
+https://your-gateway.example.com/v1/images/edits
 ```
 
 It sends the cropped image and a generated PNG mask with an alpha channel. In ComfyUI, the area you paint in the mask is treated as the area to edit.
@@ -209,6 +216,14 @@ Content-Type: image/png
 | General local bug fix | 96-192 | 8-20 | 20-48 |
 
 Use `debug_echo` first to verify crop, mask, and paste-back before connecting a real API.
+
+For debugging, keep:
+
+```text
+on_error: raise
+```
+
+This makes API/model/key/mask problems visible in ComfyUI instead of returning an unchanged original image.
 
 For masks created by ComfyUI MaskEditor / clipspace, keep:
 

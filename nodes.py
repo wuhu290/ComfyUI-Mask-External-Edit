@@ -186,6 +186,7 @@ def _call_custom_http(
 
 
 def _call_openai_edit(
+    endpoint: str,
     api_key: str,
     api_key_env: str,
     prompt: str,
@@ -217,8 +218,9 @@ def _call_openai_edit(
     headers = {
         "Authorization": f"Bearer {resolved_api_key}",
     }
+    edit_endpoint = endpoint.strip() or "https://api.openai.com/v1/images/edits"
     response = requests.post(
-        "https://api.openai.com/v1/images/edits",
+        edit_endpoint,
         headers=headers,
         files=files,
         data=data,
@@ -226,6 +228,14 @@ def _call_openai_edit(
     )
     response.raise_for_status()
     return _decode_response_image(response)
+
+
+def _images_are_identical(left: Image.Image, right: Image.Image) -> bool:
+    if left.size != right.size:
+        right = right.resize(left.size, Image.Resampling.LANCZOS)
+    left_arr = np.asarray(left.convert("RGB"))
+    right_arr = np.asarray(right.convert("RGB"))
+    return bool(np.array_equal(left_arr, right_arr))
 
 
 @dataclass
@@ -298,6 +308,7 @@ class MaskExternalEdit:
                 "api_key": ("STRING", {"default": ""}),
                 "openai_model": ("STRING", {"default": "gpt-image-2"}),
                 "mask_mode": (["auto", "white_edits", "black_edits"], {"default": "auto"}),
+                "on_error": (["raise", "return_original"], {"default": "raise"}),
             },
         }
 
@@ -325,6 +336,7 @@ class MaskExternalEdit:
         api_key: str,
         openai_model: str,
         mask_mode: str,
+        on_error: str,
     ):
         original = _tensor_to_pil(image)
         source_mask = _prepare_edit_mask(_mask_to_pil(mask, original.size), mask_mode)
@@ -357,6 +369,7 @@ class MaskExternalEdit:
                 status = "debug_echo: returned autocontrast crop without calling external API."
             elif provider == "openai":
                 edited_crop = _call_openai_edit(
+                    api_endpoint,
                     api_key,
                     api_key_env,
                     prompt,
@@ -366,6 +379,8 @@ class MaskExternalEdit:
                     openai_model,
                     timeout_seconds,
                 )
+                if _images_are_identical(api_crop, edited_crop):
+                    raise ValueError("OpenAI returned an unchanged crop. Check mask, prompt, model access, or API endpoint.")
                 status = f"openai: edited crop {api_crop.size[0]}x{api_crop.size[1]}, model={openai_model}, scale={scale:.3f}"
             elif provider == "custom_http":
                 edited_crop = _call_custom_http(
@@ -383,6 +398,8 @@ class MaskExternalEdit:
                 raise ValueError(f"Unsupported provider: {provider}")
         except Exception as exc:
             status = f"external edit failed: {exc}. Returning original image."
+            if on_error == "raise":
+                raise RuntimeError(status) from exc
             edited_crop = api_crop
             succeeded = False
 
