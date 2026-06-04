@@ -1,0 +1,185 @@
+# ComfyUI-KusArt-Mask-External-Edit
+
+ComfyUI custom node for local masked image editing.
+
+The node accepts an original image and a user-painted mask, crops the masked area with context padding, sends the crop and crop mask to an external image-editing API, then blends the edited crop back into the original image.
+
+This is designed for product features such as:
+
+- Fix hands
+- Enhance face
+- Change expression
+- Repair local generation bugs
+- General masked image editing
+
+## Node
+
+After installation, search this node in ComfyUI:
+
+```text
+KusArt Mask External Edit
+```
+
+Category:
+
+```text
+KusArt / Enhance
+```
+
+## Inputs
+
+| Input | Description |
+| --- | --- |
+| `image` | Original ComfyUI image |
+| `mask` | User-painted mask |
+| `provider` | `custom_http` or `debug_echo` |
+| `task` | `general_fix`, `fix_hands`, `enhance_face`, `change_expression` |
+| `prompt` | Edit instruction sent to the external service |
+| `api_endpoint` | External HTTP endpoint |
+| `api_key_env` | Environment variable name for the API key |
+| `padding` | Context pixels added around the mask crop |
+| `mask_grow` | Expands the mask before crop/paste |
+| `feather` | Softens pasted edge |
+| `crop_max_size` | Max crop size sent to the external API |
+| `threshold` | Mask threshold for finding the painted area |
+| `timeout_seconds` | HTTP request timeout |
+| `blend_mode` | `normal` or `color_match` |
+
+## Outputs
+
+| Output | Description |
+| --- | --- |
+| `image` | Final image after paste-back |
+| `debug_crop` | Original crop sent for editing |
+| `edited_crop` | External API result crop |
+| `used_mask` | Final paste mask |
+| `status` | Request status or failure reason |
+
+## Install
+
+Manual install:
+
+```bash
+cd ComfyUI/custom_nodes
+git clone https://github.com/YOUR_NAME/ComfyUI-KusArt-Mask-External-Edit.git
+cd ComfyUI-KusArt-Mask-External-Edit
+pip install -r requirements.txt
+```
+
+Restart ComfyUI.
+
+Then right click in the canvas and search:
+
+```text
+KusArt Mask External Edit
+```
+
+If you use ComfyUI Manager and the repository is not listed yet:
+
+```text
+Manager -> Install via Git URL -> paste the GitHub repository URL
+```
+
+To make it searchable in ComfyUI Manager for everyone, publish the repository on GitHub and submit it to the ComfyUI Registry or Manager list. Before publishing, update these fields in `pyproject.toml`:
+
+```toml
+[project.urls]
+Repository = "https://github.com/YOUR_NAME/ComfyUI-KusArt-Mask-External-Edit"
+
+[tool.comfy]
+PublisherId = "YOUR_PUBLISHER_ID"
+```
+
+Official references:
+
+- ComfyUI custom node install: https://docs.comfy.org/installation/install_custom_node
+- ComfyUI Registry metadata: https://docs.comfy.org/registry/specifications
+- Publishing nodes: https://docs.comfy.org/registry/publishing
+
+## External API contract
+
+The `custom_http` provider sends a `multipart/form-data` POST request:
+
+```text
+POST {api_endpoint}
+
+files:
+  image: crop.png
+  mask: mask.png
+
+fields:
+  prompt: string
+  task: general_fix | fix_hands | enhance_face | change_expression
+```
+
+If `api_key_env` is set and the environment variable exists, the node sends:
+
+```text
+Authorization: Bearer {API_KEY}
+```
+
+Example:
+
+```bash
+set KUSART_EXTERNAL_EDIT_API_KEY=your_key_here
+```
+
+On Windows PowerShell:
+
+```powershell
+$env:KUSART_EXTERNAL_EDIT_API_KEY="your_key_here"
+```
+
+Expected response can be any one of:
+
+1. Direct image response:
+
+```text
+Content-Type: image/png
+```
+
+2. JSON with base64:
+
+```json
+{
+  "image_base64": "..."
+}
+```
+
+3. JSON with URL:
+
+```json
+{
+  "url": "https://example.com/edited.png"
+}
+```
+
+4. JSON with image list:
+
+```json
+{
+  "images": [
+    {
+      "image_base64": "..."
+    }
+  ]
+}
+```
+
+## Recommended settings
+
+| Task | Padding | Mask Grow | Feather |
+| --- | ---: | ---: | ---: |
+| Fix hands | 160-256 | 8-20 | 20-48 |
+| Enhance face | 128-192 | 6-16 | 16-36 |
+| Change expression | 160-256 | 4-12 | 18-40 |
+| General local bug fix | 96-192 | 8-20 | 20-48 |
+
+Use `debug_echo` first to verify crop, mask, and paste-back before connecting a real API.
+
+## Notes
+
+- This node does not bypass external provider safety policies.
+- If the external API fails, the node returns the original image and writes the reason to `status`.
+- API keys should be provided through environment variables, not hardcoded into workflows.
+- `debug_echo` is included only for checking mask crop and paste-back behavior before connecting a real provider.
