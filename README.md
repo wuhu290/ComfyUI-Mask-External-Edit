@@ -61,8 +61,8 @@ Manual install:
 
 ```bash
 cd ComfyUI/custom_nodes
-git clone https://github.com/YOUR_NAME/ComfyUI-KusArt-Mask-External-Edit.git
-cd ComfyUI-KusArt-Mask-External-Edit
+git clone https://github.com/wuhu290/ComfyUI-Mask-External-Edit.git
+cd ComfyUI-Mask-External-Edit
 pip install -r requirements.txt
 ```
 
@@ -84,10 +84,10 @@ To make it searchable in ComfyUI Manager for everyone, publish the repository on
 
 ```toml
 [project.urls]
-Repository = "https://github.com/YOUR_NAME/ComfyUI-KusArt-Mask-External-Edit"
+Repository = "https://github.com/wuhu290/ComfyUI-Mask-External-Edit"
 
 [tool.comfy]
-PublisherId = "YOUR_PUBLISHER_ID"
+PublisherId = "wuhu290"
 ```
 
 Official references:

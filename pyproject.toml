@@ -13,10 +13,10 @@ classifiers = [
 dependencies = { file = ["requirements.txt"] }
 
 [project.urls]
-Repository = "https://github.com/YOUR_NAME/ComfyUI-KusArt-Mask-External-Edit"
-Documentation = "https://github.com/YOUR_NAME/ComfyUI-KusArt-Mask-External-Edit#readme"
-"Bug Tracker" = "https://github.com/YOUR_NAME/ComfyUI-KusArt-Mask-External-Edit/issues"
+Repository = "https://github.com/wuhu290/ComfyUI-Mask-External-Edit"
+Documentation = "https://github.com/wuhu290/ComfyUI-Mask-External-Edit#readme"
+"Bug Tracker" = "https://github.com/wuhu290/ComfyUI-Mask-External-Edit/issues"
 
 [tool.comfy]
-PublisherId = "YOUR_PUBLISHER_ID"
+PublisherId = "wuhu290"
 DisplayName = "KusArt Mask External Edit"
