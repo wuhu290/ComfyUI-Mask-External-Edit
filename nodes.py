@@ -281,7 +281,7 @@ class MaskExternalEdit:
                 "timeout_seconds": ("INT", {"default": 120, "min": 10, "max": 600, "step": 10}),
                 "blend_mode": (["normal", "color_match"], {"default": "color_match"}),
                 "api_key": ("STRING", {"default": ""}),
-                "openai_model": (["gpt-image-1.5", "gpt-image-1", "gpt-image-1-mini"], {"default": "gpt-image-1"}),
+                "openai_model": ("STRING", {"default": "gpt-image-2"}),
             },
         }
 

@@ -45,7 +45,7 @@ Mask External Edit / Enhance
 | `threshold` | Mask threshold for finding the painted area |
 | `timeout_seconds` | HTTP request timeout |
 | `blend_mode` | `normal` or `color_match` |
-| `openai_model` | `gpt-image-1.5`, `gpt-image-1`, or `gpt-image-1-mini` |
+| `openai_model` | OpenAI image edit model name, for example `gpt-image-2` |
 
 ## Outputs
 
@@ -105,7 +105,7 @@ For direct OpenAI image editing inside ComfyUI:
 ```text
 provider: openai
 api_key: your OpenAI API key
-openai_model: gpt-image-1
+openai_model: gpt-image-2
 api_endpoint: leave empty
 ```
 
