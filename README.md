@@ -32,7 +32,7 @@ Mask External Edit / Enhance
 | --- | --- |
 | `image` | Original ComfyUI image |
 | `mask` | User-painted mask |
-| `provider` | `openai`, `custom_http`, or `debug_echo` |
+| `provider` | `openai`, `openwond_draw`, `custom_http`, or `debug_echo` |
 | `task` | `general_fix`, `fix_hands`, `enhance_face`, `change_expression` |
 | `prompt` | Edit instruction sent to the external service |
 | `api_key` | Optional API key entered directly in the node |
@@ -48,6 +48,7 @@ Mask External Edit / Enhance
 | `openai_model` | OpenAI image edit model name, for example `gpt-image-2` |
 | `mask_mode` | `auto`, `white_edits`, or `black_edits` |
 | `on_error` | `raise` to show API errors, or `return_original` to silently return the original image |
+| `openwond_resolution` | `1K`, `2K`, or `4K` for OpenWond draw |
 
 ## Outputs
 
@@ -130,6 +131,47 @@ OpenAI notes that GPT Image masks are prompt-guided and may not follow the mask 
 
 - https://platform.openai.com/docs/guides/image-generation
 - https://platform.openai.com/docs/api-reference/images/createEdit
+
+## OpenWond draw usage
+
+OpenWond image models use a separate draw endpoint instead of the OpenAI Images API.
+
+For OpenWond:
+
+```text
+provider: openwond_draw
+api_endpoint: leave empty
+api_key: your OpenWond API key
+openai_model: GPT Image 2
+openwond_resolution: 1K
+mask_mode: auto
+on_error: raise
+```
+
+The node calls:
+
+```text
+POST https://image.openwond.com/v1/draw
+```
+
+It sends two reference images in `images`:
+
+```text
+1. the cropped image region
+2. a black/white mask reference where white means edit area
+```
+
+OpenWond draw is not a native inpainting API, so the model generates a full edited crop. The node then pastes only the original mask area back into the source image.
+
+Common model names visible in OpenWond include:
+
+```text
+GPT Image 2
+GPT Image 2 Pro
+Nano Banana
+Nano Banana V2
+Nano Banana Pro
+```
 
 ## Custom HTTP API contract
 

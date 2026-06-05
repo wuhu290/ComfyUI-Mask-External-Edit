@@ -109,6 +109,16 @@ def _image_to_png_bytes(image: Image.Image) -> bytes:
     return buffer.getvalue()
 
 
+def _image_to_data_url(image: Image.Image, mime: str = "image/png") -> str:
+    buffer = io.BytesIO()
+    if mime == "image/jpeg":
+        image.convert("RGB").save(buffer, format="JPEG", quality=92)
+    else:
+        image.save(buffer, format="PNG")
+    payload = base64.b64encode(buffer.getvalue()).decode("ascii")
+    return f"data:{mime};base64,{payload}"
+
+
 def _openai_mask_from_user_mask(mask: Image.Image) -> Image.Image:
     edit_mask = ImageOps.autocontrast(mask.convert("L"))
     alpha = ImageOps.invert(edit_mask)
@@ -166,6 +176,15 @@ def _raise_for_status_with_body(response: requests.Response) -> None:
     except requests.HTTPError as exc:
         body = response.text[:1000] if response.text else ""
         raise requests.HTTPError(f"{exc}; response body: {body}", response=response) from exc
+
+
+def _json_error_summary(data: Dict[str, Any]) -> str:
+    if "message" in data:
+        return str(data["message"])
+    error = data.get("error")
+    if isinstance(error, dict):
+        return str(error.get("message") or error)
+    return str(data)[:1000]
 
 
 def _resolve_api_key(api_key: str, api_key_env: str) -> str:
@@ -251,6 +270,69 @@ def _call_openai_edit(
     return _decode_response_image(response)
 
 
+def _call_openwond_draw(
+    endpoint: str,
+    api_key: str,
+    api_key_env: str,
+    prompt: str,
+    crop: Image.Image,
+    crop_mask: Image.Image,
+    task: str,
+    model: str,
+    resolution: str,
+    timeout: int,
+) -> Image.Image:
+    resolved_api_key = _resolve_api_key(api_key, api_key_env)
+    if not resolved_api_key:
+        raise ValueError("OpenWond API key is required. Fill api_key or api_key_env.")
+
+    draw_endpoint = _resolve_openwond_draw_endpoint(endpoint)
+    mask_reference = Image.new("RGB", crop_mask.size, (0, 0, 0))
+    white = Image.new("RGB", crop_mask.size, (255, 255, 255))
+    mask_reference = Image.composite(white, mask_reference, ImageOps.autocontrast(crop_mask.convert("L")))
+
+    instruction = (
+        f"Task: {task}. {prompt}\n"
+        "You will receive two reference images. The first is the image crop to edit. "
+        "The second is a mask reference: white pixels are the area to change, black pixels should be preserved. "
+        "Return a complete edited version of the first crop. Keep character identity, pose, style, lighting, and background consistent."
+    )
+    payload = {
+        "model": model,
+        "prompt": instruction,
+        "size": "auto",
+        "images": [
+            _image_to_data_url(crop.convert("RGB"), "image/png"),
+            _image_to_data_url(mask_reference, "image/png"),
+        ],
+        "resolution": resolution,
+    }
+    response = requests.post(
+        draw_endpoint,
+        headers={
+            "Authorization": f"Bearer {resolved_api_key}",
+            "Content-Type": "application/json",
+        },
+        json=payload,
+        timeout=timeout,
+    )
+    _raise_for_status_with_body(response)
+    data = response.json()
+    if data.get("code") not in (None, 200):
+        raise ValueError(f"OpenWond draw failed: {_json_error_summary(data)}")
+
+    image_url = None
+    if isinstance(data.get("data"), dict):
+        image_url = data["data"].get("url") or data["data"].get("imageUrl") or data["data"].get("image_url")
+    image_url = image_url or data.get("url") or data.get("imageUrl") or data.get("image_url")
+    if not image_url:
+        raise ValueError(f"OpenWond draw response did not contain an image URL: {str(data)[:1000]}")
+
+    remote = requests.get(image_url, timeout=60)
+    remote.raise_for_status()
+    return Image.open(io.BytesIO(remote.content)).convert("RGB")
+
+
 def _resolve_openai_edit_endpoint(endpoint: str) -> str:
     endpoint = endpoint.strip().rstrip("/")
     if not endpoint:
@@ -258,6 +340,15 @@ def _resolve_openai_edit_endpoint(endpoint: str) -> str:
     if endpoint.endswith("/images/edits"):
         return endpoint
     return endpoint + "/images/edits"
+
+
+def _resolve_openwond_draw_endpoint(endpoint: str) -> str:
+    endpoint = endpoint.strip().rstrip("/")
+    if not endpoint:
+        return "https://image.openwond.com/v1/draw"
+    if endpoint.endswith("/draw"):
+        return endpoint
+    return endpoint + "/draw"
 
 
 def _images_are_identical(left: Image.Image, right: Image.Image) -> bool:
@@ -320,7 +411,7 @@ class MaskExternalEdit:
             "required": {
                 "image": ("IMAGE",),
                 "mask": ("MASK",),
-                "provider": (["openai", "custom_http", "debug_echo"], {"default": "openai"}),
+                "provider": (["openai", "openwond_draw", "custom_http", "debug_echo"], {"default": "openai"}),
                 "task": (["general_fix", "fix_hands", "enhance_face", "change_expression"], {"default": "general_fix"}),
                 "prompt": ("STRING", {
                     "multiline": True,
@@ -339,6 +430,7 @@ class MaskExternalEdit:
                 "openai_model": ("STRING", {"default": "gpt-image-2"}),
                 "mask_mode": (["auto", "white_edits", "black_edits"], {"default": "auto"}),
                 "on_error": (["raise", "return_original"], {"default": "raise"}),
+                "openwond_resolution": (["1K", "2K", "4K"], {"default": "1K"}),
             },
         }
 
@@ -367,6 +459,7 @@ class MaskExternalEdit:
         openai_model: str,
         mask_mode: str,
         on_error: str,
+        openwond_resolution: str,
     ):
         original = _tensor_to_pil(image)
         source_mask = _prepare_edit_mask(_mask_to_pil(mask, original.size), mask_mode)
@@ -414,6 +507,22 @@ class MaskExternalEdit:
                 if _images_are_identical(api_crop, edited_crop):
                     raise ValueError("OpenAI returned an unchanged crop. Check mask, prompt, model access, or API endpoint.")
                 status = f"openai: edited crop {api_crop.size[0]}x{api_crop.size[1]}, model={openai_model}, scale={scale:.3f}"
+            elif provider == "openwond_draw":
+                edited_crop = _call_openwond_draw(
+                    api_endpoint,
+                    api_key,
+                    api_key_env,
+                    prompt,
+                    api_crop,
+                    api_mask,
+                    task,
+                    openai_model,
+                    openwond_resolution,
+                    timeout_seconds,
+                )
+                if _images_are_identical(api_crop, edited_crop):
+                    raise ValueError("OpenWond returned an unchanged crop. Check mask, prompt, model access, or credits.")
+                status = f"openwond_draw: edited crop {api_crop.size[0]}x{api_crop.size[1]}, model={openai_model}, resolution={openwond_resolution}, scale={scale:.3f}"
             elif provider == "custom_http":
                 edited_crop = _call_custom_http(
                     api_endpoint,
