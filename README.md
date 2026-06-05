@@ -49,6 +49,7 @@ Mask External Edit / Enhance
 | `mask_mode` | `auto`, `white_edits`, or `black_edits` |
 | `on_error` | `raise` to show API errors, or `return_original` to silently return the original image |
 | `openwond_resolution` | `1K`, `2K`, or `4K` for OpenWond draw |
+| `openwond_max_side` | Max side length for OpenWond reference images. Lower this if OpenWond returns 413 |
 
 ## Outputs
 
@@ -144,6 +145,7 @@ api_endpoint: leave empty
 api_key: your OpenWond API key
 openai_model: GPT Image 2
 openwond_resolution: 1K
+openwond_max_side: 768
 mask_mode: auto
 on_error: raise
 ```
@@ -162,6 +164,12 @@ It sends two reference images in `images`:
 ```
 
 OpenWond draw is not a native inpainting API, so the model generates a full edited crop. The node then pastes only the original mask area back into the source image.
+
+If OpenWond returns `413 Request Entity Too Large`, reduce:
+
+```text
+openwond_max_side: 512
+```
 
 Common model names visible in OpenWond include:
 

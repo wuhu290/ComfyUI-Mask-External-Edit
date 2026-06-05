@@ -103,6 +103,18 @@ def _resize_for_limit(
     )
 
 
+def _resize_image_max_side(image: Image.Image, max_side: int, resample=Image.Resampling.LANCZOS) -> Image.Image:
+    if max_side <= 0:
+        return image
+    width, height = image.size
+    longest = max(width, height)
+    if longest <= max_side:
+        return image
+    scale = max_side / float(longest)
+    new_size = (max(1, int(width * scale)), max(1, int(height * scale)))
+    return image.resize(new_size, resample)
+
+
 def _image_to_png_bytes(image: Image.Image) -> bytes:
     buffer = io.BytesIO()
     image.save(buffer, format="PNG")
@@ -280,6 +292,7 @@ def _call_openwond_draw(
     task: str,
     model: str,
     resolution: str,
+    max_side: int,
     timeout: int,
 ) -> Image.Image:
     resolved_api_key = _resolve_api_key(api_key, api_key_env)
@@ -290,6 +303,8 @@ def _call_openwond_draw(
     mask_reference = Image.new("RGB", crop_mask.size, (0, 0, 0))
     white = Image.new("RGB", crop_mask.size, (255, 255, 255))
     mask_reference = Image.composite(white, mask_reference, ImageOps.autocontrast(crop_mask.convert("L")))
+    request_crop = _resize_image_max_side(crop.convert("RGB"), max_side)
+    request_mask = _resize_image_max_side(mask_reference, max_side, Image.Resampling.NEAREST)
 
     instruction = (
         f"Task: {task}. {prompt}\n"
@@ -302,8 +317,8 @@ def _call_openwond_draw(
         "prompt": instruction,
         "size": "auto",
         "images": [
-            _image_to_data_url(crop.convert("RGB"), "image/png"),
-            _image_to_data_url(mask_reference, "image/png"),
+            _image_to_data_url(request_crop, "image/jpeg"),
+            _image_to_data_url(request_mask, "image/jpeg"),
         ],
         "resolution": resolution,
     }
@@ -431,6 +446,7 @@ class MaskExternalEdit:
                 "mask_mode": (["auto", "white_edits", "black_edits"], {"default": "auto"}),
                 "on_error": (["raise", "return_original"], {"default": "raise"}),
                 "openwond_resolution": (["1K", "2K", "4K"], {"default": "1K"}),
+                "openwond_max_side": ("INT", {"default": 768, "min": 256, "max": 2048, "step": 64}),
             },
         }
 
@@ -460,6 +476,7 @@ class MaskExternalEdit:
         mask_mode: str,
         on_error: str,
         openwond_resolution: str,
+        openwond_max_side: int,
     ):
         original = _tensor_to_pil(image)
         source_mask = _prepare_edit_mask(_mask_to_pil(mask, original.size), mask_mode)
@@ -518,6 +535,7 @@ class MaskExternalEdit:
                     task,
                     openai_model,
                     openwond_resolution,
+                    openwond_max_side,
                     timeout_seconds,
                 )
                 if _images_are_identical(api_crop, edited_crop):
